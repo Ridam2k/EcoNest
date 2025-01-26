@@ -1,0 +1,45 @@
+@keyframes float {
+  0% {
+    transform: translate(0, 0) scale(4);
+  }
+  25% {
+    transform: translate(-5%, -2%) scale(4.02);
+  }
+  50% {
+    transform: translate(5%, 2%) scale(3.98);
+  }
+  75% {
+    transform: translate(-3%, 3%) scale(4.01);
+  }
+  100% {
+    transform: translate(0, 0) scale(4);
+  }
+}
+
+/* All clouds are visible by default */
+.cloud {
+  display: block;
+  opacity: 0.5;
+  transition: opacity 1s ease-in-out; /* Smooth fade-out transition */
+  animation: float 10s infinite ease-in-out; /* Base animation */
+}
+
+/* Hide clouds based on the current step */
+.step-1 :is(.cloud-1) {
+  opacity: 0;
+}
+.step-2 :is(.cloud-1, .cloud-2) {
+  opacity: 0;
+}
+.step-3 :is(.cloud-1, .cloud-2, .cloud-3) {
+  opacity: 0;
+}
+.step-4 :is(.cloud-1, .cloud-2, .cloud-3, .cloud-4) {
+  opacity: 0;
+}
+.step-5 :is(.cloud-1, .cloud-2, .cloud-3, .cloud-4, .cloud-5) {
+  opacity: 0;
+}
+.step-6 :is(.cloud-1, .cloud-2, .cloud-3, .cloud-4, .cloud-5, .cloud-6) {
+  opacity: 0;
+}
