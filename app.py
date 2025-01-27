@@ -16,8 +16,6 @@ app = Flask(__name__)
 # Initialize the analyzer with environment variables
 analyzer = CarbonFootprintAnalyzer(
     # api_key=os.getenv('OPENAI_API_KEY'),
-    # api_key="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",
-    api_key="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",
     model_name=os.getenv('MODEL_NAME', 'gpt-4'),
     temperature=float(os.getenv('TEMPERATURE', '0.0'))
 )
