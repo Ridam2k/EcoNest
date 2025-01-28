@@ -161,7 +161,9 @@ def analyze_footprint():
         
         # Save the result to Supabase
         supabase.table('users').update({
-            "emission_analysis": result
+            "user_input": data['user_input'],
+            "emission_analysis": result,
+            "carbon_footprint": result['estimated_monthly_carbon_footprint']
         }).eq("id", request.user.id).execute()
         
         return jsonify({
