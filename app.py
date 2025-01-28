@@ -16,6 +16,7 @@ app = Flask(__name__)
 # Initialize the analyzer with environment variables
 analyzer = CarbonFootprintAnalyzer(
     # api_key=os.getenv('OPENAI_API_KEY'),
+    api_key="proj-1J_Qm1EkdiAaB0Mu055ZwXZ3phJ2ma0vnFc99ppNl70JA_5NLYTiSiwfXd3JkJKOztK57mxzKWT3BlbkFJosRIiD7_kiC00KI_3cRkqB7B0Kr_YL6fOGA7Pi3rzXaqpmHDnqfv8pxpbvWr1aUJqoFs0eeUoA",
     model_name=os.getenv('MODEL_NAME', 'gpt-4'),
     temperature=float(os.getenv('TEMPERATURE', '0.0'))
 )
@@ -30,7 +31,34 @@ class User:
             'id': self.id,
             'email': self.email,
             'username': self.username
-        }
+        }       
+
+def authenticate_user(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        # Extract the JWT token from the Authorization header
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return jsonify({"error": "Authorization header is missing", "status": "error"}), 401
+        
+        token = auth_header.split(" ")[1]  # Assuming the header is "Bearer <token>"
+        
+        try:
+            # Verify the token and get the user
+            user_response = supabase.auth.get_user(token)
+            if not user_response:
+                return jsonify({"error": "Invalid or expired token", "status": "error"}), 401
+            
+            # Attach the user to the request object
+            user = user_response.user
+            if not user:
+                return jsonify({"error": "User not found in token", "status": "error"}), 401
+            
+            request.user = user
+            return f(*args, **kwargs)
+        except Exception as e:
+            return jsonify({"error": str(e), "status": "error"}), 401
+    return wrapper
 
 def validate_request(required_fields: list) -> Callable:
     """
@@ -92,7 +120,9 @@ def register():
         
         return jsonify({
             "message": "User registered successfully",
-            "user": user_data}), 201
+            "user": user_data,
+            "access_token": response.session.access_token  
+            }), 201
                        
     except Exception as e:
         return jsonify({"error": str(e)}), 400
@@ -106,12 +136,16 @@ def login():
     
     try:
         response = supabase.auth.sign_in_with_password({"email": email, "password": password})
-        return jsonify({"message": "Login successful"}), 200
+        print(response)
+        return jsonify({"message": "Login successful",
+                        "access_token": response.session.access_token
+                        }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 401
 
 @app.route('/api/analyze', methods=['POST'])
 @validate_request(['user_input'])
+@authenticate_user
 def analyze_footprint():
     """
     Analyze user's carbon footprint based on their input.
@@ -125,6 +159,11 @@ def analyze_footprint():
         data = request.get_json()
         result = analyzer.analyze_footprint(data['user_input'])
         
+        # Save the result to Supabase
+        supabase.table('users').update({
+            "emission_analysis": result
+        }).eq("id", request.user.id).execute()
+        
         return jsonify({
             "data": result,
             "status": "success"
@@ -136,25 +175,42 @@ def analyze_footprint():
         }), 500
 
 @app.route('/api/recommendations', methods=['POST'])
-@validate_request(['emission_data', 'budget', 'categories'])
+@validate_request(['budget', 'categories'])
+@authenticate_user
 def get_recommendations():
     """
     Get eco-friendly recommendations based on analysis.
     
     Expected request body:
     {
-        "emission_data": {...},
         "budget": "200 USD",
         "categories": "Category1, Category2"
     }
     """
     try:
         data = request.get_json()
+        
+        # Fetch the user's emission data from the `users` table
+        user_data = supabase.table('users').select("emission_analysis").eq("id", request.user.id).execute().data
+        
+        if not user_data or not user_data[0].get("emission_analysis"):
+            return jsonify({
+                "error": "Emission data not found for the user",
+                "status": "error"
+            }), 404
+        
+        emission_data = user_data[0]["emission_analysis"]
+        
         result = analyzer.get_recommendations(
-            data['emission_data'],
+            emission_data,
             data['budget'],
             data['categories']
         )
+        
+         # Save the result to Supabase
+        supabase.table('users').update({
+            "recommendations": result
+        }).eq("id", request.user.id).execute()
         
         return jsonify({
             "data": result,
