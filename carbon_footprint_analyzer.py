@@ -1,9 +1,11 @@
 import openai
 import json
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Any, Tuple
 import ast
 import json
 import re
+import UpdatedStructuredResponse as usr
+
 
 # Example user input
 # user_input = '''I drive a 2013 Honda accord 15 miles to and from my work to my house. 
@@ -81,64 +83,49 @@ class CarbonFootprintAnalyzer:
         return text.format(recommendation=recommendation, current_category = current_category, steps_taken=specific_steps_taken, next_steps=next_steps, previous_recommendations=initial_recommendations)
     
     @staticmethod
-    def update_recommendations(db_string, combined_string, completed_recommendation, completed_category):
-        try: 
-            print("DB String:", db_string)
-            print("Combined String:", combined_string)
-            print("Completed Recommendation:", completed_recommendation)
-            print("Completed Category:", completed_category)
-            
-            # Convert db_string to a dictionary
-            db_dict = ast.literal_eval(db_string)['recommendations']  # Extract the 'recommendations' dictionary
-            
-            # Split the combined string into updated analysis and new recommendation
-            updated_analysis, new_recommendation = re.split(r'New\s*Recommendations?:', combined_string)
-            updated_analysis = re.split(r'Updated Analysis:', updated_analysis, maxsplit=1)[-1].strip()
-            
-            print("Split Strings:", updated_analysis, new_recommendation)
-            
-            # Extract and store the updated_footprint and implementation_analysis
-            updated_analysis_dict = ast.literal_eval(updated_analysis.split(': ', 1)[1].strip())
-            footprint_analysis = updated_analysis_dict['updated_footprint']
-            implementation_analysis = updated_analysis_dict['implementation_analysis']
-            
-            # Check if the recommendation is completed
-            if footprint_analysis['recommendation_completed']:
-                # Remove the completed recommendation from the db_dict
-                if completed_category in db_dict:
-                    db_dict[completed_category] = [item for item in db_dict[completed_category] 
-                                                if item['title'] != completed_recommendation]
-                    
-                    # Remove the category if it's empty
-                    if not db_dict[completed_category]:
-                        del db_dict[completed_category]
-            
-            # Add the new recommendation
-            new_rec_dict = ast.literal_eval(new_recommendation.strip())
-            new_category = new_rec_dict['category']
-            new_items = new_rec_dict['items']
-            
-            if new_category in db_dict:
-                db_dict[new_category].extend(new_items)
-            else:
-                db_dict[new_category] = new_items
-            
-            # Wrap the updated db_dict back in the original structure
-            updated_db_dict = [{'recommendations': db_dict}]
-            
-            # updated_db_dict = db_string
-            # footprint_analysis = {}
-            # implementation_analysis = {}
-            
-            print("COMPLETED CONVERSION")
-        except Exception as e:
-            print("ERROR:", e)
-            # updated_db_dict = db_string
-            # footprint_analysis = {}
-            # implementation_analysis = {}
+    def update_recommendations(db_string: str, structured_response_str: str, completed_recommendation: str, completed_category: str) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
+        print("DB String:", db_string)
+        print("Structured Response:", structured_response_str)
+        print("Completed Recommendation:", completed_recommendation)
+        print("Completed Category:", completed_category)
         
-        return updated_db_dict, footprint_analysis, implementation_analysis
+        structured_response = json.loads(structured_response_str)
+        
+        # Convert db_string to a dictionary
+        db_dict = json.loads(db_string)
+        
+        # Extract relevant information from structured_response
+        footprint_analysis = structured_response['updated_footprint']
+        implementation_analysis = structured_response['implementation_analysis']
+        
+        if footprint_analysis['recommendation_completed']:
+            # Remove the completed recommendation from the db_dict
+            if completed_category in db_dict['recommendations']:
+                db_dict['recommendations'][completed_category] = [
+                    item for item in db_dict['recommendations'][completed_category] 
+                    if item['title'] != completed_recommendation
+                ]
+                
+                # Remove the category if it's empty
+                if not db_dict['recommendations'][completed_category]:
+                    del db_dict['recommendations'][completed_category]
 
+        # Add the new recommendations if any
+        if structured_response['new_recommendations']:
+            new_category = structured_response['new_recommendations']['category']
+            print(new_category)
+            new_items = structured_response['new_recommendations']['items']
+            print(new_items)
+            
+            if new_category in db_dict['recommendations']:
+                db_dict['recommendations'][new_category].extend(new_items)
+            else:
+                db_dict['recommendations'][new_category] = new_items
+        
+        print("COMPLETED CONVERSION")
+        
+        return db_dict, footprint_analysis, implementation_analysis
+    
     @staticmethod
     def _format_analysis_response(response: str) -> Dict:
         """Format the analysis response."""
@@ -204,8 +191,9 @@ class CarbonFootprintAnalyzer:
             model=self.model_name,
             messages=self.conversation,
             temperature=self.temperature,
-            max_completion_tokens=2000,
+            # max_completion_tokens=2000,
         )
+        
         # print("Response ",response)
 
         analysis_response = response.choices[0].message.content
@@ -242,7 +230,7 @@ class CarbonFootprintAnalyzer:
         return self._parse_recommendations(recommendations_response)
         # return initial_recommendations
 
-    def update_progress(self, initial_recommendations: Dict, user_input: str, emission_data: Dict,
+    def update_progress(self, initial_recommendations: str, user_input: str, emission_data: Dict,
                         recommendation: str, current_category: str,
                         specific_steps_taken: Optional[str] = None, next_steps: Optional[str] = None) -> Dict:
         """
@@ -263,12 +251,12 @@ class CarbonFootprintAnalyzer:
         self.conversation.append({"role": "user", "content": "Based on the user progress, update your recommendations."})
         self.conversation.append({"role": "assistant", "content": f"Making API call with the prompt: {updates_prompt}"})
 
-        response = self.client.chat.completions.create(
-            model=self.model_name,
-            messages=self.conversation,
-            temperature=self.temperature,
-            # max_completion_tokens=2000,
-        )
+        
+        # response = self.client.beta.chat.completions.parse(
+        #     model="gpt-4o-2024-08-06",
+        #     messages=self.conversation,
+        #     response_format=usr.UpdatedStructuredResponse
+        # )
         
         # print("Conversation", self.conversation)
         # print("Initial Recommendations", initial_recommendations)
@@ -276,27 +264,25 @@ class CarbonFootprintAnalyzer:
         # print("Recommendation", recommendation)
         # print("Next Steps", next_steps)
         
-        response_content = response.choices[0].message.content
+        # response_content = response.choices[0].message.content
         # print("Updates Response:", response_content)
+        # print(type(response_content))
         
-        progress = response_content
+        
+        # progress = response_content
         
         # Usage
         
         # db_string = initial_recommendations
-        # combined_string = '''Updated Analysis: {'updated_footprint': {'total_monthly_kg': 885, 'reduction_achieved': 15, 'percent_improvement': 1.67, 'recommendation_completed': True}, 'implementation_analysis': {'completeness': 100, 'remaining_potential': 0, 'additional_steps': []}} 
-        # # New Recommendation: {'category': 'Plant-Based Solutions', 'items': [{'title': 'Seasonal Vegetables in Balcony Planters', 'details': {'Implementation': 'Start growing your own vegetables in planters on your balcony. This can reduce the carbon footprint associated with transporting vegetables from the farm to your plate.', 'Cost': '$50-$100', 'Carbon Reduction': '10-20 kg/month', 'Benefits': 'Fresh vegetables for cooking, reduced grocery costs', 'Resources': 'A sunny balcony, planters, soil, and seeds', 'Maintenance': 'Regular watering and pruning'}}]}'''
-        # progress = combined_string
-        
         # recommendation = "Start a Herb Garden"
         # category = "Plant-Based Solutions"
+        progress = '''{"updated_footprint":{"total_monthly_kg":750,"reduction_achieved":5,"percent_improvement":0.66,"recommendation_completed":true},"implementation_analysis":{"completeness":100,"remaining_potential":0,"additional_steps":[]},"new_recommendations":{"category":"Plant-Based Solutions","items":[{"title":"Compost Organic Waste","details":{"Implementation":"Set up a small compost bin in your kitchen or balcony to recycle vegetable peels and organic waste.","Cost":"$30-$60 for a compost bin","Carbon_Reduction":"3-7 kg/month","Benefits":"Reduces landfill waste, enriches soil when used in gardens, sustainable waste management.","Resources":"Compost bin, organic waste.","Maintenance":"Regular turning of compost and monitoring moisture level."}}]}}'''
         
-        db_string = json.dumps(initial_recommendations)  # Convert to string if it's not already
+        
+        
+        db_string = initial_recommendations 
         updated_db_dict, footprint_analysis, implementation_analysis = self.update_recommendations(db_string, progress, recommendation, current_category)
         updated_db_string = json.dumps(updated_db_dict)
-
-
-        # updated_db_string, footprint_analysis, implementation_analysis = self.update_recommendations(db_string, progress, recommendation, current_category)
 
         print("Updated DB String:", updated_db_string)
         print("\nFootprint Analysis:", footprint_analysis)
