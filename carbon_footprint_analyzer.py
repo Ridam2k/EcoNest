@@ -143,36 +143,6 @@ class CarbonFootprintAnalyzer:
         parsed_data['estimated_monthly_carbon_footprint'] = footprint
         return parsed_data
 
-    @staticmethod
-    def _parse_recommendations(input_string: str) -> Dict[str, Dict[str, List[Dict]]]:
-        """Parse the recommendations response."""
-        categories = {}
-        current_category = None
-        current_recommendation = None
-
-        for line in input_string.split('\n'):
-            if line.startswith('Category:'):
-                current_category = line.split(': ')[1].strip()
-                categories[current_category] = []
-            elif line.strip().startswith(('1.', '2.', '3.')):
-                if current_recommendation:
-                    categories[current_category].append(current_recommendation)
-                current_recommendation = {
-                    'title': line.split('. ')[1].strip(),
-                    'details': {}
-                }
-            elif line.strip().startswith('-'):
-                key, value = line.split(': ', 1)
-                key = key.strip('- ').strip()
-                current_recommendation['details'][key] = value.strip()
-
-        if current_recommendation:
-            categories[current_category].append(current_recommendation)
-
-        # Wrap the categories in a "recommendations" dictionary
-        return {"recommendations": categories}
-
-
     def analyze_footprint(self, user_input: str) -> Dict:
         """
         Analyze the user's carbon footprint based on their input.
