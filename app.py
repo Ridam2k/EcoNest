@@ -16,13 +16,13 @@ app = Flask(__name__)
 # Initialize the analyzer with environment variables
 analyzer = CarbonFootprintAnalyzer(
     # api_key=os.getenv('OPENAI_API_KEY'),
-    api_key="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",
+    api_key="",
     model_name=os.getenv('MODEL_NAME', 'gpt-4'),
     temperature=float(os.getenv('TEMPERATURE', '0.0'))
 )
 
 url = "https://ivszphjesvnhsxjqgssb.supabase.co"
-key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2c3pwaGplc3ZuaHN4anFnc3NiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc4NDg3NjIsImV4cCI6MjA1MzQyNDc2Mn0.NOoYUkUBDVTEZpFwUh5U5rwITLBIpCKfVbG8i94RcQc"
+key = ""
 supabase: Client = create_client(url, key)
 
 class User:
@@ -275,7 +275,8 @@ def update_progress():
         )
         
         print("Updated Recommendations: ")
-        print(updated_db_dict)
+        # print(updated_db_dict)
+        print(type(updated_db_dict))
         
                 
         updated_emission = footprint_analysis['total_monthly_kg']
@@ -288,6 +289,7 @@ def update_progress():
         
         response_data = {
             "footprint_analysis": footprint_analysis,
+            "implementation_analysis": implementation_analysis,
             "recommendations": updated_db_dict,
             "status": "success"
         }

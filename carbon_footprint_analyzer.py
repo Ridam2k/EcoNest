@@ -5,6 +5,7 @@ import ast
 import json
 import re
 import UpdatedStructuredResponse as usr
+import RecommendationsStructuredResponse as rsr
 
 
 # Example user input
@@ -35,7 +36,7 @@ import UpdatedStructuredResponse as usr
 #     "estimated_monthly_carbon_footprint": "900 kg"
 # }
 
-# initial_recommendations ={'Plant-Based Solutions': [{'title': 'Indoor Air-Purifying Plants', 'details': {'Implementation': 'Purchase low-maintenance indoor plants like Snake Plant and Spider Plant. These plants are known for their air-purifying qualities.', 'Cost': '$30-$50', 'Carbon Reduction': '2-5 kg/month', 'Benefits': 'Improved indoor air quality, aesthetic appeal', 'Resources': 'Indoor space with indirect sunlight', 'Maintenance': 'Watering once a week'}}], 'Waste Reduction Initiatives': [{'title': 'Herb Garden Starter Kit', 'details': {'Implementation': 'Start growing your own herbs in your kitchen. This can reduce the carbon footprint associated with transporting herbs from the farm to your plate.', 'Cost': '$20-$40', 'Carbon Reduction': '5-10 kg/month', 'Benefits': 'Fresh herbs for cooking, reduced grocery costs', 'Resources': 'A sunny windowsill in your kitchen', 'Maintenance': 'Regular watering and pruning'}}, {'title': 'Composting Starter Kit', 'details': {'Implementation': 'Start composting your kitchen waste. This can significantly reduce the amount of waste that goes to the landfill.', 'Cost': '$50-$100', 'Carbon Reduction': '10-20 kg/month', 'Benefits': 'Reduced waste, rich compost for plants', 'Resources': 'A small outdoor space or a dedicated indoor bin', 'Maintenance': 'Regular turning of compost'}}, {'title': 'Reusable Alternatives', 'details': {'Implementation': 'Replace single-use items in your home with reusable alternatives. This includes food storage containers, shopping bags, and water bottles.', 'Cost': '$30-$60', 'Carbon Reduction': '10-15 kg/month', 'Benefits': 'Reduced waste, cost savings over time', 'Resources': 'Initial investment in reusable items', 'Maintenance': 'Regular cleaning and care'}}]}
+initial_recommendations ={'Plant-Based Solutions': [{'title': 'Indoor Air-Purifying Plants', 'details': {'Implementation': 'Purchase low-maintenance indoor plants like Snake Plant and Spider Plant. These plants are known for their air-purifying qualities.', 'Cost': '$30-$50', 'Carbon Reduction': '2-5 kg/month', 'Benefits': 'Improved indoor air quality, aesthetic appeal', 'Resources': 'Indoor space with indirect sunlight', 'Maintenance': 'Watering once a week'}}], 'Waste Reduction Initiatives': [{'title': 'Herb Garden Starter Kit', 'details': {'Implementation': 'Start growing your own herbs in your kitchen. This can reduce the carbon footprint associated with transporting herbs from the farm to your plate.', 'Cost': '$20-$40', 'Carbon Reduction': '5-10 kg/month', 'Benefits': 'Fresh herbs for cooking, reduced grocery costs', 'Resources': 'A sunny windowsill in your kitchen', 'Maintenance': 'Regular watering and pruning'}}, {'title': 'Composting Starter Kit', 'details': {'Implementation': 'Start composting your kitchen waste. This can significantly reduce the amount of waste that goes to the landfill.', 'Cost': '$50-$100', 'Carbon Reduction': '10-20 kg/month', 'Benefits': 'Reduced waste, rich compost for plants', 'Resources': 'A small outdoor space or a dedicated indoor bin', 'Maintenance': 'Regular turning of compost'}}, {'title': 'Reusable Alternatives', 'details': {'Implementation': 'Replace single-use items in your home with reusable alternatives. This includes food storage containers, shopping bags, and water bottles.', 'Cost': '$30-$60', 'Carbon Reduction': '10-15 kg/month', 'Benefits': 'Reduced waste, cost savings over time', 'Resources': 'Initial investment in reusable items', 'Maintenance': 'Regular cleaning and care'}}]}
 
 
 
@@ -83,8 +84,8 @@ class CarbonFootprintAnalyzer:
         return text.format(recommendation=recommendation, current_category = current_category, steps_taken=specific_steps_taken, next_steps=next_steps, previous_recommendations=initial_recommendations)
     
     @staticmethod
-    def update_recommendations(db_string: str, structured_response_str: str, completed_recommendation: str, completed_category: str) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
-        print("DB String:", db_string)
+    def update_recommendations(db_dict: Dict, structured_response_str: str, completed_recommendation: str, completed_category: str) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
+        print("DB String:", db_dict)
         print("Structured Response:", structured_response_str)
         print("Completed Recommendation:", completed_recommendation)
         print("Completed Category:", completed_category)
@@ -92,7 +93,7 @@ class CarbonFootprintAnalyzer:
         structured_response = json.loads(structured_response_str)
         
         # Convert db_string to a dictionary
-        db_dict = json.loads(db_string)
+        # db_dict = json.loads(db_string)
         
         # Extract relevant information from structured_response
         footprint_analysis = structured_response['updated_footprint']
@@ -219,15 +220,28 @@ class CarbonFootprintAnalyzer:
         self.conversation.append({"role": "user", "content": "Based on the analysis, provide eco-friendly recommendations."})
         self.conversation.append({"role": "assistant", "content": f"Making API call with the following prompt: {recommendations_prompt}"})
 
-        response = self.client.chat.completions.create(
-            model=self.model_name,
+        # response = self.client.chat.completions.create(
+        #     model=self.model_name,
+        #     messages=self.conversation,
+        #     temperature=self.temperature,
+        #     max_tokens=2000,
+        # )
+        
+        response = self.client.beta.chat.completions.parse(
+            model="gpt-4o-2024-08-06",
             messages=self.conversation,
-            temperature=self.temperature,
-            max_tokens=2000,
+            response_format=rsr.Recommendations
         )
+        
 
         recommendations_response = response.choices[0].message.content
-        return self._parse_recommendations(recommendations_response)
+        print("Recommendations Response:", recommendations_response)
+        
+        # Parse the string response and convert it to the desired dictionary
+        parsed_response = rsr.Recommendations.parse_raw(recommendations_response)
+        recommendations_dict = parsed_response.to_recommendation_dict()
+        return recommendations_dict
+        # return self._parse_recommendations(recommendations_response)
         # return initial_recommendations
 
     def update_progress(self, initial_recommendations: str, user_input: str, emission_data: Dict,
@@ -252,44 +266,35 @@ class CarbonFootprintAnalyzer:
         self.conversation.append({"role": "assistant", "content": f"Making API call with the prompt: {updates_prompt}"})
 
         
-        # response = self.client.beta.chat.completions.parse(
-        #     model="gpt-4o-2024-08-06",
-        #     messages=self.conversation,
-        #     response_format=usr.UpdatedStructuredResponse
-        # )
+        response = self.client.beta.chat.completions.parse(
+            model="gpt-4o-2024-08-06",
+            messages=self.conversation,
+            response_format=usr.UpdatedStructuredResponse
+        )
         
-        # print("Conversation", self.conversation)
-        # print("Initial Recommendations", initial_recommendations)
-        # print("Current Category", current_category)
-        # print("Recommendation", recommendation)
-        # print("Next Steps", next_steps)
-        
-        # response_content = response.choices[0].message.content
-        # print("Updates Response:", response_content)
+        response_content = response.choices[0].message.content
+        print("Updates Response:", response_content)
         # print(type(response_content))
         
-        
-        # progress = response_content
+        progress = response_content
         
         # Usage
-        
         # db_string = initial_recommendations
         # recommendation = "Start a Herb Garden"
         # category = "Plant-Based Solutions"
-        progress = '''{"updated_footprint":{"total_monthly_kg":750,"reduction_achieved":5,"percent_improvement":0.66,"recommendation_completed":true},"implementation_analysis":{"completeness":100,"remaining_potential":0,"additional_steps":[]},"new_recommendations":{"category":"Plant-Based Solutions","items":[{"title":"Compost Organic Waste","details":{"Implementation":"Set up a small compost bin in your kitchen or balcony to recycle vegetable peels and organic waste.","Cost":"$30-$60 for a compost bin","Carbon_Reduction":"3-7 kg/month","Benefits":"Reduces landfill waste, enriches soil when used in gardens, sustainable waste management.","Resources":"Compost bin, organic waste.","Maintenance":"Regular turning of compost and monitoring moisture level."}}]}}'''
-        
+        # progress = '''{"updated_footprint":{"total_monthly_kg":750,"reduction_achieved":5,"percent_improvement":0.66,"recommendation_completed":true},"implementation_analysis":{"completeness":100,"remaining_potential":0,"additional_steps":[]},"new_recommendations":{"category":"Plant-Based Solutions","items":[{"title":"Compost Organic Waste","details":{"Implementation":"Set up a small compost bin in your kitchen or balcony to recycle vegetable peels and organic waste.","Cost":"$30-$60 for a compost bin","Carbon_Reduction":"3-7 kg/month","Benefits":"Reduces landfill waste, enriches soil when used in gardens, sustainable waste management.","Resources":"Compost bin, organic waste.","Maintenance":"Regular turning of compost and monitoring moisture level."}}]}}'''
         
         
         db_string = initial_recommendations 
         updated_db_dict, footprint_analysis, implementation_analysis = self.update_recommendations(db_string, progress, recommendation, current_category)
-        updated_db_string = json.dumps(updated_db_dict)
+        # updated_db_string = json.dumps(updated_db_dict)
 
-        print("Updated DB String:", updated_db_string)
+        print("Updated DB String:", updated_db_dict)
         print("\nFootprint Analysis:", footprint_analysis)
         print("\nImplementation Analysis:", implementation_analysis)
         
         
-        return updated_db_string, footprint_analysis, implementation_analysis
+        return updated_db_dict, footprint_analysis, implementation_analysis
 
 
 

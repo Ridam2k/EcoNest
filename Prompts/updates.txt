@@ -66,4 +66,4 @@ Rules for recommendations:
    - The current recommendation was only partially completed
    - There are remaining steps in additional_steps
 
-Your entire response must strictly adhere to the JSON structure provided above. Do not include any text outside of this JSON structure.
+Your entire response must strictly adhere to the JSON structure provided. Do not include any text outside of this JSON structure.

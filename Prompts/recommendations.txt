@@ -26,17 +26,6 @@ Follow these guidelines when crafting your recommendations:
 
 Use the following format for each recommendation:
 
-Category: [Category Name]
-1. [Recommendation Title]
-   - Implementation: [Detailed steps]
-   - Cost: [Specific amount]
-   - Carbon Reduction: [kg/month]
-   - Benefits: [List specific benefits]
-   - Resources: [What's needed]
-   - Maintenance: [Requirements, if any]
-
-[Repeat for each recommendation]
-
 Here are the descriptions of the available categories:
 
 1. Plant-Based Solutions:
@@ -74,5 +63,5 @@ Here are the descriptions of the available categories:
 
 Please remember to provide practical, specific recommendations that acknowledge their current lifestyle while suggesting meaningful improvements. 
 Be specific in the recommendation title and while suggesting products - for example if you are suggesting any plants (indoor or outdoor), be specific about which plants. 
-Be very careful with the format of the JSON output and stick to the format provided above.
-Your response must start with the recommedations in the provided format only. '''
+Be very careful with the format of the JSON output and stick to the format provided.
+Your response must start with the recommedations in the provided format only. 
