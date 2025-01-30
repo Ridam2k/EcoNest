@@ -204,6 +204,14 @@ def get_recommendations():
         
         emission_data = user_data[0]["emission_analysis"]
         
+        print("Emission Data: ")
+        print(type(emission_data))
+        
+        # return jsonify({
+        #     "data": "okay",
+        #     "status": "success"
+        # })
+        
         result = analyzer.get_recommendations(
             emission_data,
             data['budget'],

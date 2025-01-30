@@ -6,6 +6,7 @@ import json
 import re
 import UpdatedStructuredResponse as usr
 import RecommendationsStructuredResponse as rsr
+import AnalysisStructuredResponse as asr
 
 
 # Example user input
@@ -13,30 +14,29 @@ import RecommendationsStructuredResponse as rsr
 # I have a family of 4 with my wife and 2 kids, all of us are non-vegetarians. 
 # We have a double door refrigerator and we live in Atlanta in a 2b2b appartment.'''
 
-# emission_data = {"items": [
-#     {
-#         "category": "Transportation",
-#         "emission_range": "150-200 kg",
-#         "name": "Daily commute to work",
-#         "additional_info": "The user drives a 2013 Honda Accord 15 miles to and from work."
-#     },
-#     {
-#         "category": "Food",
-#         "emission_range": "400-600 kg",
-#         "name": "Non-vegetarian diet",
-#         "additional_info": "The user and their family of 4 are all non-vegetarians."
-#     },
-#     {
-#         "category": "Home Energy",
-#         "emission_range": "200-300 kg",
-#         "name": "Home appliances usage",
-#         "additional_info": "The user lives in a 2b2b apartment in Atlanta with a double door refrigerator."
-#     }
-#     ],
-#     "estimated_monthly_carbon_footprint": "900 kg"
-# }
-
-initial_recommendations ={'Plant-Based Solutions': [{'title': 'Indoor Air-Purifying Plants', 'details': {'Implementation': 'Purchase low-maintenance indoor plants like Snake Plant and Spider Plant. These plants are known for their air-purifying qualities.', 'Cost': '$30-$50', 'Carbon Reduction': '2-5 kg/month', 'Benefits': 'Improved indoor air quality, aesthetic appeal', 'Resources': 'Indoor space with indirect sunlight', 'Maintenance': 'Watering once a week'}}], 'Waste Reduction Initiatives': [{'title': 'Herb Garden Starter Kit', 'details': {'Implementation': 'Start growing your own herbs in your kitchen. This can reduce the carbon footprint associated with transporting herbs from the farm to your plate.', 'Cost': '$20-$40', 'Carbon Reduction': '5-10 kg/month', 'Benefits': 'Fresh herbs for cooking, reduced grocery costs', 'Resources': 'A sunny windowsill in your kitchen', 'Maintenance': 'Regular watering and pruning'}}, {'title': 'Composting Starter Kit', 'details': {'Implementation': 'Start composting your kitchen waste. This can significantly reduce the amount of waste that goes to the landfill.', 'Cost': '$50-$100', 'Carbon Reduction': '10-20 kg/month', 'Benefits': 'Reduced waste, rich compost for plants', 'Resources': 'A small outdoor space or a dedicated indoor bin', 'Maintenance': 'Regular turning of compost'}}, {'title': 'Reusable Alternatives', 'details': {'Implementation': 'Replace single-use items in your home with reusable alternatives. This includes food storage containers, shopping bags, and water bottles.', 'Cost': '$30-$60', 'Carbon Reduction': '10-15 kg/month', 'Benefits': 'Reduced waste, cost savings over time', 'Resources': 'Initial investment in reusable items', 'Maintenance': 'Regular cleaning and care'}}]}
+emission_data = {"items": [
+    {
+        "category": "Transportation",
+        "emission_range": "150-200 kg",
+        "name": "Daily commute to work",
+        "additional_info": "The user drives a 2013 Honda Accord 15 miles to and from work."
+    },
+    {
+        "category": "Food",
+        "emission_range": "400-600 kg",
+        "name": "Non-vegetarian diet",
+        "additional_info": "The user and their family of 4 are all non-vegetarians."
+    },
+    {
+        "category": "Home Energy",
+        "emission_range": "200-300 kg",
+        "name": "Home appliances usage",
+        "additional_info": "The user lives in a 2b2b apartment in Atlanta with a double door refrigerator."
+    }
+    ],
+    "estimated_monthly_carbon_footprint": "900 kg"
+}
+# initial_recommendations ={'Plant-Based Solutions': [{'title': 'Indoor Air-Purifying Plants', 'details': {'Implementation': 'Purchase low-maintenance indoor plants like Snake Plant and Spider Plant. These plants are known for their air-purifying qualities.', 'Cost': '$30-$50', 'Carbon Reduction': '2-5 kg/month', 'Benefits': 'Improved indoor air quality, aesthetic appeal', 'Resources': 'Indoor space with indirect sunlight', 'Maintenance': 'Watering once a week'}}], 'Waste Reduction Initiatives': [{'title': 'Herb Garden Starter Kit', 'details': {'Implementation': 'Start growing your own herbs in your kitchen. This can reduce the carbon footprint associated with transporting herbs from the farm to your plate.', 'Cost': '$20-$40', 'Carbon Reduction': '5-10 kg/month', 'Benefits': 'Fresh herbs for cooking, reduced grocery costs', 'Resources': 'A sunny windowsill in your kitchen', 'Maintenance': 'Regular watering and pruning'}}, {'title': 'Composting Starter Kit', 'details': {'Implementation': 'Start composting your kitchen waste. This can significantly reduce the amount of waste that goes to the landfill.', 'Cost': '$50-$100', 'Carbon Reduction': '10-20 kg/month', 'Benefits': 'Reduced waste, rich compost for plants', 'Resources': 'A small outdoor space or a dedicated indoor bin', 'Maintenance': 'Regular turning of compost'}}, {'title': 'Reusable Alternatives', 'details': {'Implementation': 'Replace single-use items in your home with reusable alternatives. This includes food storage containers, shopping bags, and water bottles.', 'Cost': '$30-$60', 'Carbon Reduction': '10-15 kg/month', 'Benefits': 'Reduced waste, cost savings over time', 'Resources': 'Initial investment in reusable items', 'Maintenance': 'Regular cleaning and care'}}]}
 
 
 
@@ -158,19 +158,27 @@ class CarbonFootprintAnalyzer:
         self.conversation.append({"role": "user", "content": "Please analyze the user's carbon footprint based on their input."})
         self.conversation.append({"role": "assistant", "content": f"Making API call with the following prompt: {analysis_prompt}"})
 
-        response = self.client.chat.completions.create(
-            model=self.model_name,
+        # response = self.client.chat.completions.create(
+        #     model=self.model_name,
+        #     messages=self.conversation,
+        #     temperature=self.temperature,
+        #     # max_completion_tokens=2000,
+        # )
+        
+        response = self.client.beta.chat.completions.parse(
+            model="gpt-4o-2024-08-06",
             messages=self.conversation,
-            temperature=self.temperature,
-            # max_completion_tokens=2000,
+            response_format=asr.CarbonFootprintReport
         )
         
         # print("Response ",response)
 
         analysis_response = response.choices[0].message.content
         print("Analysis Response:", analysis_response)
-        return self._format_analysis_response(analysis_response)
-        # return emission_data
+        emission_data = asr.CarbonFootprintReport.transform_to_custom_format(json.loads(analysis_response))
+        
+        # return self._format_analysis_response(analysis_response)
+        return emission_data
 
     def get_recommendations(self, emission_data: Dict, budget: str, categories: str) -> Dict:
         """
@@ -189,13 +197,6 @@ class CarbonFootprintAnalyzer:
         self.conversation.append({"role": "assistant", "content": f"User Emission Analysis: {emission_data}"})
         self.conversation.append({"role": "user", "content": "Based on the analysis, provide eco-friendly recommendations."})
         self.conversation.append({"role": "assistant", "content": f"Making API call with the following prompt: {recommendations_prompt}"})
-
-        # response = self.client.chat.completions.create(
-        #     model=self.model_name,
-        #     messages=self.conversation,
-        #     temperature=self.temperature,
-        #     max_tokens=2000,
-        # )
         
         response = self.client.beta.chat.completions.parse(
             model="gpt-4o-2024-08-06",
@@ -203,7 +204,6 @@ class CarbonFootprintAnalyzer:
             response_format=rsr.Recommendations
         )
         
-
         recommendations_response = response.choices[0].message.content
         print("Recommendations Response:", recommendations_response)
         
@@ -211,8 +211,6 @@ class CarbonFootprintAnalyzer:
         parsed_response = rsr.Recommendations.parse_raw(recommendations_response)
         recommendations_dict = parsed_response.to_recommendation_dict()
         return recommendations_dict
-        # return self._parse_recommendations(recommendations_response)
-        # return initial_recommendations
 
     def update_progress(self, initial_recommendations: str, user_input: str, emission_data: Dict,
                         recommendation: str, current_category: str,

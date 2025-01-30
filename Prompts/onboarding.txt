@@ -15,24 +15,10 @@ Please analyze this input and provide a structured assessment of the user's carb
    c. Assign a descriptive name to the behavior
    d. Note any additional relevant information provided by the user
 
-3. Compile your analysis into a JSON object following this structure:
-   {{
-     "items": [
-       {{
-         "category": "Category name",
-         "emission_range": "X-Y kg",
-         "name": "Descriptive name of the behavior",
-         "additional_info": "Any extra details provided"
-       }},
-       // Additional items as needed
-     ],
-     "estimated_monthly_carbon_footprint": "X kg"
-   }}
-
-4. If the user is providing information about members of their family or multiple people in their home, then provide ALL the emission ranges cumulatively for all members. 
+3. If the user is providing information about members of their family or multiple people in their home, then provide ALL the emission ranges cumulatively for all members. 
 Stay consistent in your emission estimates - of whether you are doing it for a single person or multiple people. 
 
-5. Based on the emission values and ranges, provide a final assessment of the user (or the total of the user's family/multiple members depending on the case) carbon footprint in the "estimated_monthly_carbon_footprint" field of the JSON output.
+4. Based on the emission values and ranges, provide a final assessment of the user (or the total of the user's family/multiple members depending on the case) carbon footprint in the "estimated_monthly_carbon_footprint" field of the JSON output.
 It should be a single numerical value in kilograms (kg) representing the estimated monthly carbon emissions. Strictly stick to the format mentioned above for the final estimate.
 If you are providing a range, please provide the average of the range as the final estimate.
 
@@ -43,19 +29,4 @@ Note:
 
 Provide the final JSON output as described above with the estimated monthly carbon emissions. Be very careful with your analysis and with the format of the JSON output. 
 Your response must start with the provided JSON structure and must include the final carbon footprint estimate. Any analysis or explanation should be included in the additional_info field of the JSON output only.
-DO NO REPLY IN MARKDOWN OR ANY OTHER FORMAT. YOUR RESPONSE MUST START WITH THE THIS OUTPUT FORMAT
-
-OUTPUT FORMAT-
-
-{{
-     "items": [
-       {{
-         "category": "Category name",
-         "emission_range": "X-Y kg",
-         "name": "Descriptive name of the behavior",
-         "additional_info": "Any extra details provided"
-       }},
-       // Additional items as needed
-     ],
-     "estimated_monthly_carbon_footprint": "X kg"
-   }}
+DO NO REPLY IN MARKDOWN OR ANY OTHER FORMAT. YOUR RESPONSE MUST START WITH THE THE OUTPUT FORMAT
