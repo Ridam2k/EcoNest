@@ -16,13 +16,13 @@ app = Flask(__name__)
 # Initialize the analyzer with environment variables
 analyzer = CarbonFootprintAnalyzer(
     # api_key=os.getenv('OPENAI_API_KEY'),
-    api_key="proj-1J_Qm1EkdiAaB0Mu055ZwXZ3phJ2ma0vnFc99ppNl70JA_5NLYTiSiwfXd3JkJKOztK57mxzKWT3BlbkFJosRIiD7_kiC00KI_3cRkqB7B0Kr_YL6fOGA7Pi3rzXaqpmHDnqfv8pxpbvWr1aUJqoFs0eeUoA",
+    api_key="",
     model_name=os.getenv('MODEL_NAME', 'gpt-4'),
     temperature=float(os.getenv('TEMPERATURE', '0.0'))
 )
 
 url = "https://ivszphjesvnhsxjqgssb.supabase.co"
-key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2c3pwaGplc3ZuaHN4anFnc3NiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc4NDg3NjIsImV4cCI6MjA1MzQyNDc2Mn0.NOoYUkUBDVTEZpFwUh5U5rwITLBIpCKfVbG8i94RcQc"
+key = ""
 supabase: Client = create_client(url, key)
 
 class User:
@@ -225,7 +225,8 @@ def get_recommendations():
         }), 500
 
 @app.route('/api/progress', methods=['POST'])
-@validate_request(['initial_recommendations', 'recommendation'])
+# @validate_request(['recommendation', 'current_category'], optional=['specific_steps_taken', 'next_steps'])
+@authenticate_user
 def update_progress():
     """
     Update progress based on completed recommendations.
@@ -239,16 +240,67 @@ def update_progress():
     """
     try:
         data = request.get_json()
-        result = analyzer.update_progress(
-            data['initial_recommendations'],
+        
+        # Check for required fields
+        required_fields = ['recommendation', 'current_category']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({
+                    "error": f"Missing required field: {field}",
+                    "status": "error"
+                }), 400
+                
+                
+        specific_steps_taken = data.get('specific_steps_taken', "")
+        next_steps = data.get('next_steps', "")
+        
+        user_data = supabase.table('users').select().eq("id", request.user.id).execute().data
+        user_input = user_data[0]['user_input']
+        emission_data = user_data[0]['emission_analysis']
+        initial_recommendations = user_data[0]['recommendations']
+        
+        # print("Initial Recommendations from DB: ")
+        # print(initial_recommendations)
+
+        updated_db_dict, footprint_analysis, implementation_analysis = analyzer.update_progress(
+            initial_recommendations,   #from db
+            user_input,
+            emission_data,
             data['recommendation'],
-            data.get('specific_steps_taken')  # Optional field
+            data['current_category'],
+            specific_steps_taken,
+            next_steps
+        )
+        
+        print("Updated Recommendations: ")
+        print(updated_db_dict)
+                
+        updated_emission = footprint_analysis['total_monthly_kg']
+        
+        supabase.table('users').update({
+            "carbon_footprint": updated_emission,
+            "recommendations": json.dumps(updated_db_dict),
+        }).eq("id", request.user.id).execute()
+          
+        
+        response_data = {
+            "footprint_analysis": footprint_analysis,
+            "recommendations": updated_db_dict,
+            "status": "success"
+        }
+
+        return app.response_class(
+            # response="ookau"
+            response=response_data,
+            status=200,
+            mimetype='application/json'
         )
         
         return jsonify({
-            "data": result,
+            "data": "okay",
             "status": "success"
         })
+        
     except Exception as e:
         return jsonify({
             "error": str(e),

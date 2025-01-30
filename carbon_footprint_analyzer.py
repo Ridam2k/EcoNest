@@ -2,6 +2,40 @@ import openai
 import json
 from typing import Dict, List, Optional, Union
 import ast
+import json
+import re
+
+# Example user input
+# user_input = '''I drive a 2013 Honda accord 15 miles to and from my work to my house. 
+# I have a family of 4 with my wife and 2 kids, all of us are non-vegetarians. 
+# We have a double door refrigerator and we live in Atlanta in a 2b2b appartment.'''
+
+# emission_data = {"items": [
+#     {
+#         "category": "Transportation",
+#         "emission_range": "150-200 kg",
+#         "name": "Daily commute to work",
+#         "additional_info": "The user drives a 2013 Honda Accord 15 miles to and from work."
+#     },
+#     {
+#         "category": "Food",
+#         "emission_range": "400-600 kg",
+#         "name": "Non-vegetarian diet",
+#         "additional_info": "The user and their family of 4 are all non-vegetarians."
+#     },
+#     {
+#         "category": "Home Energy",
+#         "emission_range": "200-300 kg",
+#         "name": "Home appliances usage",
+#         "additional_info": "The user lives in a 2b2b apartment in Atlanta with a double door refrigerator."
+#     }
+#     ],
+#     "estimated_monthly_carbon_footprint": "900 kg"
+# }
+
+# initial_recommendations ={'Plant-Based Solutions': [{'title': 'Indoor Air-Purifying Plants', 'details': {'Implementation': 'Purchase low-maintenance indoor plants like Snake Plant and Spider Plant. These plants are known for their air-purifying qualities.', 'Cost': '$30-$50', 'Carbon Reduction': '2-5 kg/month', 'Benefits': 'Improved indoor air quality, aesthetic appeal', 'Resources': 'Indoor space with indirect sunlight', 'Maintenance': 'Watering once a week'}}], 'Waste Reduction Initiatives': [{'title': 'Herb Garden Starter Kit', 'details': {'Implementation': 'Start growing your own herbs in your kitchen. This can reduce the carbon footprint associated with transporting herbs from the farm to your plate.', 'Cost': '$20-$40', 'Carbon Reduction': '5-10 kg/month', 'Benefits': 'Fresh herbs for cooking, reduced grocery costs', 'Resources': 'A sunny windowsill in your kitchen', 'Maintenance': 'Regular watering and pruning'}}, {'title': 'Composting Starter Kit', 'details': {'Implementation': 'Start composting your kitchen waste. This can significantly reduce the amount of waste that goes to the landfill.', 'Cost': '$50-$100', 'Carbon Reduction': '10-20 kg/month', 'Benefits': 'Reduced waste, rich compost for plants', 'Resources': 'A small outdoor space or a dedicated indoor bin', 'Maintenance': 'Regular turning of compost'}}, {'title': 'Reusable Alternatives', 'details': {'Implementation': 'Replace single-use items in your home with reusable alternatives. This includes food storage containers, shopping bags, and water bottles.', 'Cost': '$30-$60', 'Carbon Reduction': '10-15 kg/month', 'Benefits': 'Reduced waste, cost savings over time', 'Resources': 'Initial investment in reusable items', 'Maintenance': 'Regular cleaning and care'}}]}
+
+
 
 class CarbonFootprintAnalyzer:
     def __init__(self, api_key: str, model_name: str = "gpt-4", temperature: float = 0.0):
@@ -39,13 +73,72 @@ class CarbonFootprintAnalyzer:
         return text.format(budget=budget, categories=categories)
         
 
-    def _get_updates_prompt(self, recommendation: str, specific_steps_taken: Optional[str]) -> str:
+    def _get_updates_prompt(self, recommendation: str, current_category : str,initial_recommendations, specific_steps_taken: Optional[str]= None, next_steps: Optional[str] = None) -> str:
         """Generate the updates prompt template."""
         with open("Prompts/updates.txt", "r") as file:
             text = file.read()
             
-        return text.format(recommendation=recommendation, specific_steps_taken=specific_steps_taken)
+        return text.format(recommendation=recommendation, current_category = current_category, steps_taken=specific_steps_taken, next_steps=next_steps, previous_recommendations=initial_recommendations)
     
+    @staticmethod
+    def update_recommendations(db_string, combined_string, completed_recommendation, completed_category):
+        try: 
+            print("DB String:", db_string)
+            print("Combined String:", combined_string)
+            print("Completed Recommendation:", completed_recommendation)
+            print("Completed Category:", completed_category)
+            
+            # Convert db_string to a dictionary
+            db_dict = ast.literal_eval(db_string)['recommendations']  # Extract the 'recommendations' dictionary
+            
+            # Split the combined string into updated analysis and new recommendation
+            updated_analysis, new_recommendation = re.split(r'New\s*Recommendations?:', combined_string)
+            updated_analysis = re.split(r'Updated Analysis:', updated_analysis, maxsplit=1)[-1].strip()
+            
+            print("Split Strings:", updated_analysis, new_recommendation)
+            
+            # Extract and store the updated_footprint and implementation_analysis
+            updated_analysis_dict = ast.literal_eval(updated_analysis.split(': ', 1)[1].strip())
+            footprint_analysis = updated_analysis_dict['updated_footprint']
+            implementation_analysis = updated_analysis_dict['implementation_analysis']
+            
+            # Check if the recommendation is completed
+            if footprint_analysis['recommendation_completed']:
+                # Remove the completed recommendation from the db_dict
+                if completed_category in db_dict:
+                    db_dict[completed_category] = [item for item in db_dict[completed_category] 
+                                                if item['title'] != completed_recommendation]
+                    
+                    # Remove the category if it's empty
+                    if not db_dict[completed_category]:
+                        del db_dict[completed_category]
+            
+            # Add the new recommendation
+            new_rec_dict = ast.literal_eval(new_recommendation.strip())
+            new_category = new_rec_dict['category']
+            new_items = new_rec_dict['items']
+            
+            if new_category in db_dict:
+                db_dict[new_category].extend(new_items)
+            else:
+                db_dict[new_category] = new_items
+            
+            # Wrap the updated db_dict back in the original structure
+            updated_db_dict = [{'recommendations': db_dict}]
+            
+            # updated_db_dict = db_string
+            # footprint_analysis = {}
+            # implementation_analysis = {}
+            
+            print("COMPLETED CONVERSION")
+        except Exception as e:
+            print("ERROR:", e)
+            # updated_db_dict = db_string
+            # footprint_analysis = {}
+            # implementation_analysis = {}
+        
+        return updated_db_dict, footprint_analysis, implementation_analysis
+
     @staticmethod
     def _format_analysis_response(response: str) -> Dict:
         """Format the analysis response."""
@@ -63,7 +156,7 @@ class CarbonFootprintAnalyzer:
         return parsed_data
 
     @staticmethod
-    def _parse_recommendations(input_string: str) -> Dict[str, List[Dict]]:
+    def _parse_recommendations(input_string: str) -> Dict[str, Dict[str, List[Dict]]]:
         """Parse the recommendations response."""
         categories = {}
         current_category = None
@@ -88,7 +181,9 @@ class CarbonFootprintAnalyzer:
         if current_recommendation:
             categories[current_category].append(current_recommendation)
 
-        return categories
+        # Wrap the categories in a "recommendations" dictionary
+        return {"recommendations": categories}
+
 
     def analyze_footprint(self, user_input: str) -> Dict:
         """
@@ -100,47 +195,23 @@ class CarbonFootprintAnalyzer:
         Returns:
             Dict: Analyzed carbon footprint data
         """
-        # analysis_prompt = self._get_analysis_prompt(user_input)
+        analysis_prompt = self._get_analysis_prompt(user_input)
         
-        # self.conversation.append({"role": "user", "content": "Please analyze the user's carbon footprint based on their input."})
-        # self.conversation.append({"role": "assistant", "content": f"Making API call with the following prompt: {analysis_prompt}"})
+        self.conversation.append({"role": "user", "content": "Please analyze the user's carbon footprint based on their input."})
+        self.conversation.append({"role": "assistant", "content": f"Making API call with the following prompt: {analysis_prompt}"})
 
-        # response = self.client.chat.completions.create(
-        #     model=self.model_name,
-        #     messages=self.conversation,
-        #     temperature=self.temperature,
-        #     max_tokens=2000,
-        # )
-        # # print("Response ",response)
+        response = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=self.conversation,
+            temperature=self.temperature,
+            max_completion_tokens=2000,
+        )
+        # print("Response ",response)
 
-        # analysis_response = response.choices[0].message.content
-        # print("Analysis Response:", analysis_response)
-        # return self._format_analysis_response(analysis_response)
-        
-        emission_data = {"items": [
-            {
-                "category": "Transportation",
-                "emission_range": "150-200 kg",
-                "name": "Daily commute to work",
-                "additional_info": "The user drives a 2013 Honda Accord 15 miles to and from work."
-            },
-            {
-                "category": "Food",
-                "emission_range": "400-600 kg",
-                "name": "Non-vegetarian diet",
-                "additional_info": "The user and their family of 4 are all non-vegetarians."
-            },
-            {
-                "category": "Home Energy",
-                "emission_range": "200-300 kg",
-                "name": "Home appliances usage",
-                "additional_info": "The user lives in a 2b2b apartment in Atlanta with a double door refrigerator."
-            }
-            ],
-            "estimated_monthly_carbon_footprint": "900 kg"
-        }
-        self.conversation.append({"role": "assistant", "content": f"User Emission Analysis: {emission_data}"})
-        return emission_data
+        analysis_response = response.choices[0].message.content
+        print("Analysis Response:", analysis_response)
+        return self._format_analysis_response(analysis_response)
+        # return emission_data
 
     def get_recommendations(self, emission_data: Dict, budget: str, categories: str) -> Dict:
         """
@@ -154,25 +225,26 @@ class CarbonFootprintAnalyzer:
         Returns:
             Dict: Recommendations data
         """
-        # recommendations_prompt = self._get_recommendations_prompt(budget, categories)
+        recommendations_prompt = self._get_recommendations_prompt(budget, categories)
         
-        # self.conversation.append({"role": "assistant", "content": f"User Emission Analysis: {emission_data}"})
-        # self.conversation.append({"role": "user", "content": "Based on the analysis, provide eco-friendly recommendations."})
-        # self.conversation.append({"role": "assistant", "content": f"Making API call with the following prompt: {recommendations_prompt}"})
+        self.conversation.append({"role": "assistant", "content": f"User Emission Analysis: {emission_data}"})
+        self.conversation.append({"role": "user", "content": "Based on the analysis, provide eco-friendly recommendations."})
+        self.conversation.append({"role": "assistant", "content": f"Making API call with the following prompt: {recommendations_prompt}"})
 
-        # response = self.client.chat.completions.create(
-        #     model=self.model_name,
-        #     messages=self.conversation,
-        #     temperature=self.temperature,
-        #     max_tokens=2000,
-        # )
+        response = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=self.conversation,
+            temperature=self.temperature,
+            max_tokens=2000,
+        )
 
-        # recommendations_response = response.choices[0].message.content
-        # return self._parse_recommendations(recommendations_response)
-        recommendations ={'Plant-Based Solutions': [{'title': 'Indoor Air-Purifying Plants', 'details': {'Implementation': 'Purchase low-maintenance indoor plants like Snake Plant and Spider Plant. These plants are known for their air-purifying qualities.', 'Cost': '$30-$50', 'Carbon Reduction': '2-5 kg/month', 'Benefits': 'Improved indoor air quality, aesthetic appeal', 'Resources': 'Indoor space with indirect sunlight', 'Maintenance': 'Watering once a week'}}], 'Waste Reduction Initiatives': [{'title': 'Herb Garden Starter Kit', 'details': {'Implementation': 'Start growing your own herbs in your kitchen. This can reduce the carbon footprint associated with transporting herbs from the farm to your plate.', 'Cost': '$20-$40', 'Carbon Reduction': '5-10 kg/month', 'Benefits': 'Fresh herbs for cooking, reduced grocery costs', 'Resources': 'A sunny windowsill in your kitchen', 'Maintenance': 'Regular watering and pruning'}}, {'title': 'Composting Starter Kit', 'details': {'Implementation': 'Start composting your kitchen waste. This can significantly reduce the amount of waste that goes to the landfill.', 'Cost': '$50-$100', 'Carbon Reduction': '10-20 kg/month', 'Benefits': 'Reduced waste, rich compost for plants', 'Resources': 'A small outdoor space or a dedicated indoor bin', 'Maintenance': 'Regular turning of compost'}}, {'title': 'Reusable Alternatives', 'details': {'Implementation': 'Replace single-use items in your home with reusable alternatives. This includes food storage containers, shopping bags, and water bottles.', 'Cost': '$30-$60', 'Carbon Reduction': '10-15 kg/month', 'Benefits': 'Reduced waste, cost savings over time', 'Resources': 'Initial investment in reusable items', 'Maintenance': 'Regular cleaning and care'}}]}
-        return recommendations
+        recommendations_response = response.choices[0].message.content
+        return self._parse_recommendations(recommendations_response)
+        # return initial_recommendations
 
-    def update_progress(self, initial_recommendations: Dict, recommendation: str, specific_steps_taken: Optional[str] = None) -> Dict:
+    def update_progress(self, initial_recommendations: Dict, user_input: str, emission_data: Dict,
+                        recommendation: str, current_category: str,
+                        specific_steps_taken: Optional[str] = None, next_steps: Optional[str] = None) -> Dict:
         """
         Update progress based on completed recommendations.
         
@@ -184,8 +256,9 @@ class CarbonFootprintAnalyzer:
         Returns:
             Dict: Updated progress data
         """
-        updates_prompt = self._get_updates_prompt(recommendation, specific_steps_taken)
+        updates_prompt = self._get_updates_prompt(recommendation, current_category = current_category,initial_recommendations= initial_recommendations, specific_steps_taken=specific_steps_taken, next_steps=next_steps )
         
+        self.conversation.append({"role": "assistant", "content": f"User analysis: {emission_data}"})
         self.conversation.append({"role": "assistant", "content": f"Recommendations to the user: {initial_recommendations}"})
         self.conversation.append({"role": "user", "content": "Based on the user progress, update your recommendations."})
         self.conversation.append({"role": "assistant", "content": f"Making API call with the prompt: {updates_prompt}"})
@@ -194,22 +267,45 @@ class CarbonFootprintAnalyzer:
             model=self.model_name,
             messages=self.conversation,
             temperature=self.temperature,
-            max_tokens=2000,
+            # max_completion_tokens=2000,
         )
         
+        # print("Conversation", self.conversation)
+        # print("Initial Recommendations", initial_recommendations)
+        # print("Current Category", current_category)
+        # print("Recommendation", recommendation)
+        # print("Next Steps", next_steps)
+        
         response_content = response.choices[0].message.content
-        print("Updates Response:", response_content)
+        # print("Updates Response:", response_content)
         
-        start_index = response_content.find('updated_footprint')
-        data_string = response_content[start_index-2:]
-
-        # Convert the string to a dictionary
-        updates_response = ast.literal_eval(data_string)
+        progress = response_content
         
-        # print("Data dict:")
-        # print(updates_response)
+        # Usage
+        
+        # db_string = initial_recommendations
+        # combined_string = '''Updated Analysis: {'updated_footprint': {'total_monthly_kg': 885, 'reduction_achieved': 15, 'percent_improvement': 1.67, 'recommendation_completed': True}, 'implementation_analysis': {'completeness': 100, 'remaining_potential': 0, 'additional_steps': []}} 
+        # # New Recommendation: {'category': 'Plant-Based Solutions', 'items': [{'title': 'Seasonal Vegetables in Balcony Planters', 'details': {'Implementation': 'Start growing your own vegetables in planters on your balcony. This can reduce the carbon footprint associated with transporting vegetables from the farm to your plate.', 'Cost': '$50-$100', 'Carbon Reduction': '10-20 kg/month', 'Benefits': 'Fresh vegetables for cooking, reduced grocery costs', 'Resources': 'A sunny balcony, planters, soil, and seeds', 'Maintenance': 'Regular watering and pruning'}}]}'''
+        # progress = combined_string
+        
+        # recommendation = "Start a Herb Garden"
+        # category = "Plant-Based Solutions"
+        
+        db_string = json.dumps(initial_recommendations)  # Convert to string if it's not already
+        updated_db_dict, footprint_analysis, implementation_analysis = self.update_recommendations(db_string, progress, recommendation, current_category)
+        updated_db_string = json.dumps(updated_db_dict)
 
-        return updates_response
+
+        # updated_db_string, footprint_analysis, implementation_analysis = self.update_recommendations(db_string, progress, recommendation, current_category)
+
+        print("Updated DB String:", updated_db_string)
+        print("\nFootprint Analysis:", footprint_analysis)
+        print("\nImplementation Analysis:", implementation_analysis)
+        
+        
+        return updated_db_string, footprint_analysis, implementation_analysis
+
+
 
 
 def main():
