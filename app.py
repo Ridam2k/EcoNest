@@ -108,6 +108,7 @@ def register():
             "password": password
         })
         
+        
         # Extract relevant user information
         user_data = {
             "id": response.user.id,
