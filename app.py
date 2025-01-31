@@ -1,13 +1,14 @@
 from flask import Flask, request, jsonify
 from carbon_footprint_analyzer import CarbonFootprintAnalyzer
 from supabase import create_client, Client
-# from supafunc import SyncFunctionsClient
 from functools import wraps
 import os
 from typing import Callable
 import json
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
 # print("key")
 # print(os.getenv('OPENAI_API_KEY'))
@@ -25,13 +26,15 @@ url = "https://ivszphjesvnhsxjqgssb.supabase.co"
 key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2c3pwaGplc3ZuaHN4anFnc3NiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc4NDg3NjIsImV4cCI6MjA1MzQyNDc2Mn0.NOoYUkUBDVTEZpFwUh5U5rwITLBIpCKfVbG8i94RcQc"
 supabase: Client = create_client(url, key)
 
+
 class User:
     def to_dict(self):
         return {
             'id': self.id,
             'email': self.email,
             'username': self.username
-        }       
+        }
+
 
 def convert_postgres_array(array_string: str) -> list:
     # Handle empty array "{}"
@@ -57,30 +60,32 @@ def authenticate_user(f):
         auth_header = request.headers.get('Authorization')
         if not auth_header:
             return jsonify({"error": "Authorization header is missing", "status": "error"}), 401
-        
-        token = auth_header.split(" ")[1]  # Assuming the header is "Bearer <token>"
-        
+
+        # Assuming the header is "Bearer <token>"
+        token = auth_header.split(" ")[1]
+
         try:
             # Verify the token and get the user
             user_response = supabase.auth.get_user(token)
             if not user_response:
                 return jsonify({"error": "Invalid or expired token", "status": "error"}), 401
-            
+
             # Attach the user to the request object
             user = user_response.user
             if not user:
                 return jsonify({"error": "User not found in token", "status": "error"}), 401
-            
+
             request.user = user
             return f(*args, **kwargs)
         except Exception as e:
             return jsonify({"error": str(e), "status": "error"}), 401
     return wrapper
 
+
 def validate_request(required_fields: list) -> Callable:
     """
     Decorator to validate request body fields.
-    
+
     Args:
         required_fields (list): List of required fields in the request body
     """
@@ -95,7 +100,8 @@ def validate_request(required_fields: list) -> Callable:
                         "status": "error"
                     }), 400
 
-                missing_fields = [field for field in required_fields if field not in data]
+                missing_fields = [
+                    field for field in required_fields if field not in data]
                 if missing_fields:
                     return jsonify({
                         "error": f"Missing required fields: {', '.join(missing_fields)}",
@@ -112,13 +118,15 @@ def validate_request(required_fields: list) -> Callable:
     return decorator
 
 # User registration
-@app.route('/register', methods=['POST'])
+
+
+@app.route('/api/register', methods=['POST'])
 def register():
     data = request.json
     email = data.get('email')
     password = data.get('password')
     username = data.get('username')
-    
+
     try:
         response = supabase.auth.sign_up({
             "email": email,
@@ -133,34 +141,38 @@ def register():
             "username"  : username,
             "past_actions": {}
         }
-        
+
         # Step 2: Store user info in the custom 'users' table
         db_response = supabase.table('users').insert(user_data).execute()
-        
+
         return jsonify({
             "message": "User registered successfully",
             "user": user_data,
-            "access_token": response.session.access_token  
-            }), 201
-                       
+            "access_token": response.session.access_token
+        }), 201
+
     except Exception as e:
         return jsonify({"error": str(e)}), 400
-    
+
 # User sign-in
-@app.route('/login', methods=['POST'])
+
+
+@app.route('/api/login', methods=['POST'])
 def login():
     data = request.json
     email = data.get('email')
     password = data.get('password')
-    
+
     try:
-        response = supabase.auth.sign_in_with_password({"email": email, "password": password})
-        print(response)
+        response = supabase.auth.sign_in_with_password(
+            {"email": email, "password": password})
         return jsonify({"message": "Login successful",
-                        "access_token": response.session.access_token
+                        "access_token": response.session.access_token,
+                        "user_id": response.user.id
                         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 401
+
 
 @app.route('/api/analyze', methods=['POST'])
 @validate_request(['user_input'])
@@ -168,7 +180,7 @@ def login():
 def analyze_footprint():
     """
     Analyze user's carbon footprint based on their input.
-    
+
     Expected request body:
     {
         "user_input": "Description of daily behaviors"
@@ -177,7 +189,7 @@ def analyze_footprint():
     try:
         data = request.get_json()
         result = analyzer.analyze_footprint(data['user_input'])
-        
+
         # Save the result to Supabase
         supabase.table('users').update({
             "user_input": data['user_input'],
@@ -185,7 +197,7 @@ def analyze_footprint():
             "starting_footprint": result['estimated_monthly_carbon_footprint'],
             "carbon_footprint": result['estimated_monthly_carbon_footprint']
         }).eq("id", request.user.id).execute()
-        
+
         return jsonify({
             "data": result,
             "status": "success"
@@ -196,13 +208,40 @@ def analyze_footprint():
             "status": "error"
         }), 500
 
+@app.route('/api/currentStatus', methods=['GET'])
+@authenticate_user
+def current_status():
+    """
+    Analyze user's carbon footprint based on their input.
+
+    Expected request body:
+    {
+        "user_input": "Description of daily behaviors"
+    }
+    """
+    try:
+        user_data = supabase.table('users').select().eq("id", request.user.id).execute().data
+                
+        result = user_data[0]
+
+        return jsonify({
+            "data": result,
+            "status": "success"
+        })
+    except Exception as e:
+        return jsonify({
+            "error": str(e),
+            "status": "error"
+        }), 500
+
+
 @app.route('/api/recommendations', methods=['POST'])
 @validate_request(['budget', 'categories'])
 @authenticate_user
 def get_recommendations():
     """
     Get eco-friendly recommendations based on analysis.
-    
+
     Expected request body:
     {
         "budget": "200 USD",
@@ -211,16 +250,17 @@ def get_recommendations():
     """
     try:
         data = request.get_json()
-        
+
         # Fetch the user's emission data from the `users` table
-        user_data = supabase.table('users').select("emission_analysis").eq("id", request.user.id).execute().data
-        
+        user_data = supabase.table('users').select(
+            "emission_analysis").eq("id", request.user.id).execute().data
+
         if not user_data or not user_data[0].get("emission_analysis"):
             return jsonify({
                 "error": "Emission data not found for the user",
                 "status": "error"
             }), 404
-        
+
         emission_data = user_data[0]["emission_analysis"]
         
         print("Emission Data: ")
@@ -236,12 +276,12 @@ def get_recommendations():
             data['budget'],
             data['categories']
         )
-        
-         # Save the result to Supabase
+
+        # Save the result to Supabase
         supabase.table('users').update({
             "recommendations": result
         }).eq("id", request.user.id).execute()
-        
+
         return jsonify({
             "data": result,
             "status": "success"
@@ -252,13 +292,14 @@ def get_recommendations():
             "status": "error"
         }), 500
 
+
 @app.route('/api/progress', methods=['POST'])
 # @validate_request(['recommendation', 'current_category'], optional=['specific_steps_taken', 'next_steps'])
 @authenticate_user
 def update_progress():
     """
     Update progress based on completed recommendations.
-    
+
     Expected request body:
     {
         "initial_recommendations": {...},
@@ -268,7 +309,7 @@ def update_progress():
     """
     try:
         data = request.get_json()
-        
+
         # Check for required fields
         required_fields = ['recommendation', 'current_category']
         for field in required_fields:
@@ -277,8 +318,7 @@ def update_progress():
                     "error": f"Missing required field: {field}",
                     "status": "error"
                 }), 400
-                
-                
+
         specific_steps_taken = data.get('specific_steps_taken', "")
         next_steps = data.get('next_steps', "")
         
@@ -320,8 +360,7 @@ def update_progress():
             "recommendations": updated_db_dict,
             "past_actions": updated_past_actions_str
         }).eq("id", request.user.id).execute()
-          
-        
+
         response_data = {
             "footprint_analysis": footprint_analysis,
             "implementation_analysis": implementation_analysis,
@@ -336,7 +375,7 @@ def update_progress():
             "status":200,
             "mimetype": 'application/json'
         })
-        
+
     except Exception as e:
         return jsonify({
             "error": str(e),
@@ -378,11 +417,14 @@ def health_check():
         "message": "Carbon Footprint Analysis API is running"
     })
 
+
 def create_app():
     """Create and configure the Flask application."""
     # Additional app configuration can be added here
     return app
 
+
 if __name__ == "__main__":
     port = int(os.getenv('PORT', 8000))
-    app.run(host='0.0.0.0', port=port, debug=os.getenv('FLASK_DEBUG', 'False').lower() == 'true')
+    app.run(host='0.0.0.0', port=port, debug=os.getenv(
+        'FLASK_DEBUG', 'False').lower() == 'true')
