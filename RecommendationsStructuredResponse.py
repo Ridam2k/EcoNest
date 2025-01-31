@@ -29,7 +29,7 @@ class Recommendations(BaseModel):
                 details = RecommendationDetails(
                     Implementation=rec['details'].get('Implementation', ''),
                     Cost=rec['details'].get('Cost', ''),
-                    Carbon_Reduction=rec['details'].get('Carbon Reduction', ''),
+                    Carbon_Reduction=rec['details'].get('Carbon_Reduction', ''),
                     Benefits=rec['details'].get('Benefits', ''),
                     Resources=rec['details'].get('Resources', ''),
                     Maintenance=rec['details'].get('Maintenance', None)
@@ -49,7 +49,7 @@ class Recommendations(BaseModel):
                     "Resources": item.details.Resources,
                     "Maintenance": item.details.Maintenance,
                     "Implementation": item.details.Implementation,
-                    "Carbon Reduction": item.details.Carbon_Reduction
+                    "Carbon_Reduction": item.details.Carbon_Reduction
                 }
                 recommendations.append({"title": item.title, "details": details_dict})
             recommendation_dict[category.category] = recommendations

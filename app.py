@@ -302,9 +302,10 @@ def update_progress():
 
     Expected request body:
     {
-        "initial_recommendations": {...},
-        "recommendation": "Recommendation title",
-        "specific_steps_taken": "Steps taken (optional)"
+        "recommendation": "Herb Gardening Kit",
+        "current_category": "Plant-Based Solutions"
+        "next_steps": "Small Appliance Upgrades" (optional)
+        "specific_steps_taken": "Steps taken" (optional)
     }
     """
     try:
