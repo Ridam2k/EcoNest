@@ -61,6 +61,17 @@ Here are the descriptions of the available categories:
   - Water bottles
 - Recycling organization systems
 
+5. Renewable Energy Installations:
+- Solar Panel Micro-Installation for partial energy offset
+- Solar Water Heater to reduce conventional water heating usage
+- Residential Wind Turbine for suitable locations
+- Home Battery Storage to maximize renewable energy usage
+
+Do not limit your recommendations solely to the example changes provided under each category. 
+The examples are only suggestive; you should reason and tailor your recommendations based on the user’s specific needs, lifestyle, family size, 
+current habits, location, seasonal factors, and other available data.
+Remember to give suggestions that MAXIMIZE the carbon footprint reduction in the given budget.
+
 Please remember to provide practical, specific recommendations that acknowledge their current lifestyle while suggesting meaningful improvements. 
 Be specific in the recommendation title and while suggesting products - for example if you are suggesting any plants (indoor or outdoor), be specific about which plants. 
 Be very careful with the format of the JSON output and stick to the format provided.

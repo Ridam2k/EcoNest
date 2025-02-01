@@ -47,8 +47,8 @@ Guidelines for recommendations:
 
 Remember to:
 - Only include new category recommendations if next_steps is provided
-- Mark recommendation_completed as true if all steps were fully implemented
-- Provide additional steps only if implementation was partial
+- Mark recommendation_completed as true IF NO steps_taken WERE PROVIDED
+- Provide additional steps only if implementation was partially completed based on your analysis of specific_steps_taken
 - Keep all numerical values rounded to two decimal places
 
 Rules for recommendations:

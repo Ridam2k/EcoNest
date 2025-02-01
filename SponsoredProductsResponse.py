@@ -21,6 +21,7 @@ class SponsoredProductsResponse(BaseModel):
     daily_habit_modifications: List[SponsoredProduct]
     waste_reduction_initiatives: List[SponsoredProduct]
     small_appliance_upgrades: List[SponsoredProduct]
+    renewable_energy :  List[SponsoredProduct]
     
     def to_dict(self) -> dict:
         categories = [

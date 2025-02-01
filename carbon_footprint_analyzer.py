@@ -42,13 +42,13 @@ emission_data = {"items": [
 
 
 class CarbonFootprintAnalyzer:
-    def __init__(self, api_key: str, model_name: str = "gpt-4", temperature: float = 0.0):
+    def __init__(self, api_key: str, model_name, temperature: float = 0.0):
         """
         Initialize the Carbon Footprint Analyzer.
         
         Args:
             api_key (str): OpenAI API key
-            model_name (str): Model to use for analysis (default: "gpt-4")
+            model_name (str): Model to use for analysis 
             temperature (float): Temperature setting for generation (default: 0.0)
         """
         # print(api_key)
@@ -168,7 +168,7 @@ class CarbonFootprintAnalyzer:
 
         
         response = self.client.beta.chat.completions.parse(
-            model="gpt-4o-2024-08-06",
+            model=self.model_name,
             messages=self.conversation,
             response_format=asr.CarbonFootprintReport
         )
@@ -199,7 +199,7 @@ class CarbonFootprintAnalyzer:
         self.conversation.append({"role": "assistant", "content": f"Making API call with the following prompt: {recommendations_prompt}"})
         
         response = self.client.beta.chat.completions.parse(
-            model="gpt-4o-2024-08-06",
+            model=self.model_name,
             messages=self.conversation,
             response_format=rsr.Recommendations
         )
@@ -227,7 +227,7 @@ class CarbonFootprintAnalyzer:
 
         
         response = self.client.beta.chat.completions.parse(
-            model="gpt-4o-2024-08-06",
+            model=self.model_name,
             messages=self.conversation,
             response_format=usr.UpdatedStructuredResponse
         )
@@ -255,7 +255,7 @@ class CarbonFootprintAnalyzer:
         self.conversation.append({"role": "assistant", "content": f"Making API call with the prompt: {products_prompt}"})
         
         response = self.client.beta.chat.completions.parse(
-            model="gpt-4o-2024-08-06",
+            model=self.model_name,
             messages=self.conversation,
             response_format=psr.SponsoredProductsResponse
         )
