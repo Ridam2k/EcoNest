@@ -92,15 +92,15 @@ class CarbonFootprintAnalyzer:
         
         structured_response = json.loads(structured_response_str)
         
-        # Convert db_string to a dictionary
-        # db_dict = json.loads(db_string)
-        
         # Extract relevant information from structured_response
         footprint_analysis = structured_response['updated_footprint']
         implementation_analysis = structured_response['implementation_analysis']
+        new_actions = []
         
         if footprint_analysis['recommendation_completed']:
             # Remove the completed recommendation from the db_dict
+            new_actions.append(completed_recommendation)
+            
             if completed_category in db_dict['recommendations']:
                 db_dict['recommendations'][completed_category] = [
                     item for item in db_dict['recommendations'][completed_category] 
@@ -125,7 +125,7 @@ class CarbonFootprintAnalyzer:
         
         print("COMPLETED CONVERSION")
         
-        return db_dict, footprint_analysis, implementation_analysis
+        return db_dict, footprint_analysis, implementation_analysis, new_actions
     
     @staticmethod
     def _format_analysis_response(response: str) -> Dict:
@@ -158,12 +158,6 @@ class CarbonFootprintAnalyzer:
         self.conversation.append({"role": "user", "content": "Please analyze the user's carbon footprint based on their input."})
         self.conversation.append({"role": "assistant", "content": f"Making API call with the following prompt: {analysis_prompt}"})
 
-        # response = self.client.chat.completions.create(
-        #     model=self.model_name,
-        #     messages=self.conversation,
-        #     temperature=self.temperature,
-        #     # max_completion_tokens=2000,
-        # )
         
         response = self.client.beta.chat.completions.parse(
             model="gpt-4o-2024-08-06",
@@ -171,13 +165,11 @@ class CarbonFootprintAnalyzer:
             response_format=asr.CarbonFootprintReport
         )
         
-        # print("Response ",response)
 
         analysis_response = response.choices[0].message.content
         print("Analysis Response:", analysis_response)
         emission_data = asr.CarbonFootprintReport.transform_to_custom_format(json.loads(analysis_response))
         
-        # return self._format_analysis_response(analysis_response)
         return emission_data
 
     def get_recommendations(self, emission_data: Dict, budget: str, categories: str) -> Dict:
@@ -217,14 +209,6 @@ class CarbonFootprintAnalyzer:
                         specific_steps_taken: Optional[str] = None, next_steps: Optional[str] = None) -> Dict:
         """
         Update progress based on completed recommendations.
-        
-        Args:
-            initial_recommendations (Dict): Initial recommendations data
-            recommendation (str): Completed recommendation
-            specific_steps_taken (str, optional): Specific steps taken by user
-            
-        Returns:
-            Dict: Updated progress data
         """
         updates_prompt = self._get_updates_prompt(recommendation, current_category = current_category,initial_recommendations= initial_recommendations, specific_steps_taken=specific_steps_taken, next_steps=next_steps )
         
@@ -246,15 +230,9 @@ class CarbonFootprintAnalyzer:
         
         progress = response_content
         
-        # Usage
-        # db_string = initial_recommendations
-        # recommendation = "Start a Herb Garden"
-        # category = "Plant-Based Solutions"
-        # progress = '''{"updated_footprint":{"total_monthly_kg":750,"reduction_achieved":5,"percent_improvement":0.66,"recommendation_completed":true},"implementation_analysis":{"completeness":100,"remaining_potential":0,"additional_steps":[]},"new_recommendations":{"category":"Plant-Based Solutions","items":[{"title":"Compost Organic Waste","details":{"Implementation":"Set up a small compost bin in your kitchen or balcony to recycle vegetable peels and organic waste.","Cost":"$30-$60 for a compost bin","Carbon_Reduction":"3-7 kg/month","Benefits":"Reduces landfill waste, enriches soil when used in gardens, sustainable waste management.","Resources":"Compost bin, organic waste.","Maintenance":"Regular turning of compost and monitoring moisture level."}}]}}'''
-        
         
         db_string = initial_recommendations 
-        updated_db_dict, footprint_analysis, implementation_analysis = self.update_recommendations(db_string, progress, recommendation, current_category)
+        updated_db_dict, footprint_analysis, implementation_analysis, new_actions = self.update_recommendations(db_string, progress, recommendation, current_category)
         # updated_db_string = json.dumps(updated_db_dict)
 
         print("Updated DB String:", updated_db_dict)
@@ -262,7 +240,7 @@ class CarbonFootprintAnalyzer:
         print("\nImplementation Analysis:", implementation_analysis)
         
         
-        return updated_db_dict, footprint_analysis, implementation_analysis
+        return updated_db_dict, footprint_analysis, implementation_analysis, new_actions
 
 
 

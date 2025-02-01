@@ -16,13 +16,13 @@ app = Flask(__name__)
 # Initialize the analyzer with environment variables
 analyzer = CarbonFootprintAnalyzer(
     # api_key=os.getenv('OPENAI_API_KEY'),
-    api_key="",
+    api_key="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",
     model_name=os.getenv('MODEL_NAME', 'gpt-4'),
     temperature=float(os.getenv('TEMPERATURE', '0.0'))
 )
 
 url = "https://ivszphjesvnhsxjqgssb.supabase.co"
-key = ""
+key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2c3pwaGplc3ZuaHN4anFnc3NiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc4NDg3NjIsImV4cCI6MjA1MzQyNDc2Mn0.NOoYUkUBDVTEZpFwUh5U5rwITLBIpCKfVbG8i94RcQc"
 supabase: Client = create_client(url, key)
 
 class User:
@@ -32,6 +32,23 @@ class User:
             'email': self.email,
             'username': self.username
         }       
+
+def convert_postgres_array(array_string: str) -> list:
+    # Handle empty array "{}"
+    if array_string == "{}":
+        return []
+
+    # Remove curly braces and split by commas (handle single-element arrays correctly)
+    array_string = array_string.strip("{}")
+    if not array_string:
+        return []
+
+    return array_string.split(",")
+
+def convert_list_to_postgres_array(items: list) -> str:
+    # Join items with commas and wrap in curly braces
+    return "{" + ",".join(items) + "}"
+
 
 def authenticate_user(f):
     @wraps(f)
@@ -113,7 +130,8 @@ def register():
         user_data = {
             "id": response.user.id,
             "email": email,
-            "username"  : username
+            "username"  : username,
+            "past_actions": []
         }
         
         # Step 2: Store user info in the custom 'users' table
@@ -164,7 +182,7 @@ def analyze_footprint():
         supabase.table('users').update({
             "user_input": data['user_input'],
             "emission_analysis": result,
-            "carbon_footprint": result['estimated_monthly_carbon_footprint']
+            "starting_footprint": result['estimated_monthly_carbon_footprint']
         }).eq("id", request.user.id).execute()
         
         return jsonify({
@@ -264,15 +282,20 @@ def update_progress():
         next_steps = data.get('next_steps', "")
         
         user_data = supabase.table('users').select().eq("id", request.user.id).execute().data
+        
+        
         user_input = user_data[0]['user_input']
         emission_data = user_data[0]['emission_analysis']
         initial_recommendations = user_data[0]['recommendations']
+        past_actions_str = user_data[0]['past_actions']
         
-        print("Initial Recommendations from DB: ")
-        # print(initial_recommendations)
-        print(type(initial_recommendations))
-
-        updated_db_dict, footprint_analysis, implementation_analysis = analyzer.update_progress(
+        print(type(past_actions_str))
+        # print(past_actions_str)
+        
+        past_actions = convert_postgres_array(past_actions_str)
+        print(past_actions)
+    
+        updated_db_dict, footprint_analysis, implementation_analysis, new_actions = analyzer.update_progress(
             initial_recommendations,   #from db
             user_input,
             emission_data,
@@ -282,16 +305,19 @@ def update_progress():
             next_steps
         )
         
-        print("Updated Recommendations: ")
-        # print(updated_db_dict)
-        print(type(updated_db_dict))
-        
                 
         updated_emission = footprint_analysis['total_monthly_kg']
+        past_actions = past_actions + new_actions
+        
+        print("updated past actions")
+        print(past_actions)
+        
+        updated_past_actions_str = convert_list_to_postgres_array(past_actions)
         
         supabase.table('users').update({
             "carbon_footprint": updated_emission,
             "recommendations": updated_db_dict,
+            "past_actions": updated_past_actions_str
         }).eq("id", request.user.id).execute()
           
         
@@ -299,11 +325,13 @@ def update_progress():
             "footprint_analysis": footprint_analysis,
             "implementation_analysis": implementation_analysis,
             "recommendations": updated_db_dict,
+            "past_actions": updated_past_actions_str, 
             "status": "success"
         }
         
         return jsonify({
             "data": response_data,
+            # "data": "okay",
             "status":200,
             "mimetype": 'application/json'
         })
