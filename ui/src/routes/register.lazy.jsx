@@ -1,4 +1,4 @@
-import { createLazyFileRoute } from "@tanstack/react-router";
+import { createLazyFileRoute, useNavigate } from "@tanstack/react-router";
 import React, { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -206,6 +206,7 @@ function RegisterPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState({});
   const [selectedCategories, setSelectedCategories] = useState([]);
+  const [isRegistering, setIsRegistering] = useState(false);
 
   const createAccount = () => {
     console.log(answers);
@@ -213,13 +214,21 @@ function RegisterPage() {
 
   const handleNext = async () => {
     if (currentStep === 0) {
-      const response = await registerUser({
-        username: answers.username,
-        email: answers.email,
-        password: answers.password,
-      });
-      setUserAuth({ token: response.access_token, userId: response.user_id });
-      setCurrentStep(currentStep + 1);
+      setIsRegistering(true);
+      try {
+        const response = await registerUser({
+          username: answers.username,
+          email: answers.email,
+          password: answers.password,
+        });
+        if (response.access_token && response.user.id) {
+          setUserAuth({ token: response.access_token, userId: response.user.id });
+          setCurrentStep(currentStep + 1);
+        }
+      } catch (error) {
+        console.error("Registration failed:", error);
+      }
+      setIsRegistering(false);
     } else if (currentStep === 1) {
       analyzeUserBehaviour({
         user_input: answers["daily_habits"],
@@ -227,14 +236,7 @@ function RegisterPage() {
       });
       setCurrentStep(currentStep + 1);
     } else if (currentStep === 3) {
-      console.log("SADAS");
-      console.log({
-        user_input: {
-          budget: answers.budget,
-          categories: selectedCategories,
-        },
-        accessToken: userAuth.token,
-      })
+      setCurrentStep(currentStep + 1);
       await generateRecommendations({
         user_input: {
           budget: answers.budget,
@@ -242,7 +244,6 @@ function RegisterPage() {
         },
         accessToken: userAuth.token,
       });
-      setCurrentStep(currentStep + 1);
     } else if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     }
@@ -254,11 +255,19 @@ function RegisterPage() {
     }
   };
 
+  const navigate = useNavigate();
+
   const handleInputChange = (name, value) => {
     setAnswers((prev) => ({
       ...prev,
       [name]: value,
     }));
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleNext();
+    }
   };
 
   const toggleCategory = (category) => {
@@ -305,10 +314,19 @@ function RegisterPage() {
       <div className="w-1/2 p-8 flex flex-col justify-center">
         <h2 className="text-3xl font-bold">Step {steps[currentStep].id}</h2>
         <h4 className="text-xl mb-4">{steps[currentStep].title || ""}</h4>
-        {currentStep == 5 && (
-          <h6 className="text-lg">
-            Let's get started on reducing your carbon footprint.
-          </h6>
+        {currentStep == 4 && (
+          <>
+            {recommendationsIsPending ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Generating your carbon neutral plan</span>
+              </div>
+            ) : (
+              <h6 className="text-lg">
+                Let's get started on reducing your carbon footprint.
+              </h6>
+            )}
+          </>
         )}
         {currentStep == 2 && isPending && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -368,6 +386,7 @@ function RegisterPage() {
                   onChange={(e) =>
                     handleInputChange(e.target.name, e.target.value)
                   }
+                  onKeyPress={handleKeyPress}
                   className="border p-2 rounded w-full"
                 />
               </div>
@@ -377,7 +396,7 @@ function RegisterPage() {
         {currentStep === 3 && (
           <div>
             <label className="block text-lg font-medium mb-4">
-              Which areas interest you the most? (Select all that apply)
+              Which areas interest you the most? (Select a maximum of 3)
             </label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {categories.map((category) => {
@@ -431,16 +450,30 @@ function RegisterPage() {
                 onClick={handleNext}
                 disabled={
                   isPending ||
+                  isRegistering ||
                   steps[currentStep].questions.some((q) => !answers[q.name]) ||
                   (currentStep === 0 &&
-                    answers.password !== answers.confirmPassword)
+                    answers.password !== answers.confirmPassword) ||
+                  (currentStep === 3 && 
+                    (selectedCategories.length < 1 || selectedCategories.length > 3))
                 }
               >
-                {currentStep === steps.length - 1 ? "Finish" : "Next"}
+                {isRegistering ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Registering...</span>
+                  </div>
+                ) : (
+                  currentStep === steps.length - 1 ? "Finish" : "Next"
+                )}
               </Button>
             </>
           ) : (
-            <Button onClick={createAccount} className="w-full">
+            <Button 
+              onClick={() => navigate({ to: '/dashboard' })} 
+              className="w-full"
+              disabled={recommendationsIsPending}
+            >
               Start your journey
             </Button>
           )}
