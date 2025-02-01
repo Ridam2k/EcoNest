@@ -16,13 +16,13 @@ app = Flask(__name__)
 # Initialize the analyzer with environment variables
 analyzer = CarbonFootprintAnalyzer(
     # api_key=os.getenv('OPENAI_API_KEY'),
-    api_key="",
+    api_key="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",
     model_name=os.getenv('MODEL_NAME', 'gpt-4'),
     temperature=float(os.getenv('TEMPERATURE', '0.0'))
 )
 
 url = "https://ivszphjesvnhsxjqgssb.supabase.co"
-key = ""
+key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2c3pwaGplc3ZuaHN4anFnc3NiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc4NDg3NjIsImV4cCI6MjA1MzQyNDc2Mn0.NOoYUkUBDVTEZpFwUh5U5rwITLBIpCKfVbG8i94RcQc"
 supabase: Client = create_client(url, key)
 
 class User:
@@ -343,6 +343,33 @@ def update_progress():
             "status": "error"
         }), 500
 
+
+@app.route('/api/internal/products', methods = ['POST'])
+# @validate_request(['user_input', 'recommendations'])
+@authenticate_user
+def get_products():
+    try:
+        # Fetch the user's data from the `users` table
+        user_data = supabase.table('users').select().eq("id", request.user.id).execute().data[0]
+        
+        user_input = user_data["user_input"]
+        recommendations = user_data["recommendations"]
+        
+        print("User input", user_input)
+        print(recommendations, type(recommendations))
+        
+        products = analyzer.get_sponsored_products(user_input, recommendations)
+        return jsonify({
+            "data": products,
+            "status": 200
+        })
+    except Exception as e:
+        return jsonify({
+            "error": str(e),
+            "status": "error"
+        }), 500
+        
+    
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint."""

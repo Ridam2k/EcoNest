@@ -7,6 +7,7 @@ import re
 import UpdatedStructuredResponse as usr
 import RecommendationsStructuredResponse as rsr
 import AnalysisStructuredResponse as asr
+import SponsoredProductsResponse as psr
 
 
 # Example user input
@@ -83,6 +84,13 @@ class CarbonFootprintAnalyzer:
             
         return text.format(recommendation=recommendation, current_category = current_category, steps_taken=specific_steps_taken, next_steps=next_steps, previous_recommendations=initial_recommendations)
     
+    def _get_products_prompt(self, user_input, recommendations):
+        """Generate the products prompt template."""
+        with open("Prompts/products.txt", "r") as file:
+            text = file.read()
+            
+        return text.format(user_input=user_input, recommendations = recommendations)
+        
     @staticmethod
     def update_recommendations(db_dict: Dict, structured_response_str: str, completed_recommendation: str, completed_category: str) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
         print("DB String:", db_dict)
@@ -241,7 +249,24 @@ class CarbonFootprintAnalyzer:
         
         
         return updated_db_dict, footprint_analysis, implementation_analysis, new_actions
-
+    
+    def get_sponsored_products(self, user_input, recommendations):
+        products_prompt = self._get_products_prompt(user_input,recommendations)
+        self.conversation.append({"role": "assistant", "content": f"Making API call with the prompt: {products_prompt}"})
+        
+        response = self.client.beta.chat.completions.parse(
+            model="gpt-4o-2024-08-06",
+            messages=self.conversation,
+            response_format=psr.SponsoredProductsResponse
+        )
+        
+        response_content = response.choices[0].message.content
+        print("Products Response:", response_content)
+        
+        products = json.loads(response_content)
+        
+        return products
+        
 
 
 
