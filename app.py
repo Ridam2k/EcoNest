@@ -131,7 +131,7 @@ def register():
             "id": response.user.id,
             "email": email,
             "username"  : username,
-            "past_actions": []
+            "past_actions": {}
         }
         
         # Step 2: Store user info in the custom 'users' table
@@ -182,7 +182,8 @@ def analyze_footprint():
         supabase.table('users').update({
             "user_input": data['user_input'],
             "emission_analysis": result,
-            "starting_footprint": result['estimated_monthly_carbon_footprint']
+            "starting_footprint": result['estimated_monthly_carbon_footprint'],
+            "carbon_footprint": result['estimated_monthly_carbon_footprint']
         }).eq("id", request.user.id).execute()
         
         return jsonify({
@@ -285,6 +286,7 @@ def update_progress():
         
         
         user_input = user_data[0]['user_input']
+        current_footprint = user_data[0]['carbon_footprint']
         emission_data = user_data[0]['emission_analysis']
         initial_recommendations = user_data[0]['recommendations']
         past_actions_str = user_data[0]['past_actions']
@@ -298,7 +300,7 @@ def update_progress():
         updated_db_dict, footprint_analysis, implementation_analysis, new_actions = analyzer.update_progress(
             initial_recommendations,   #from db
             user_input,
-            emission_data,
+            current_footprint,
             data['recommendation'],
             data['current_category'],
             specific_steps_taken,

@@ -204,7 +204,7 @@ class CarbonFootprintAnalyzer:
         recommendations_dict = parsed_response.to_recommendation_dict()
         return recommendations_dict
 
-    def update_progress(self, initial_recommendations: str, user_input: str, emission_data: Dict,
+    def update_progress(self, initial_recommendations: str, user_input: str, current_footprint: str,
                         recommendation: str, current_category: str,
                         specific_steps_taken: Optional[str] = None, next_steps: Optional[str] = None) -> Dict:
         """
@@ -212,8 +212,8 @@ class CarbonFootprintAnalyzer:
         """
         updates_prompt = self._get_updates_prompt(recommendation, current_category = current_category,initial_recommendations= initial_recommendations, specific_steps_taken=specific_steps_taken, next_steps=next_steps )
         
-        self.conversation.append({"role": "assistant", "content": f"User analysis: {emission_data}"})
-        self.conversation.append({"role": "assistant", "content": f"Recommendations to the user: {initial_recommendations}"})
+        self.conversation.append({"role": "assistant", "content": f"Initial User Input: {user_input} and current carbon footprint: {current_footprint}"})
+        self.conversation.append({"role": "assistant", "content": f"Current Recommendations to the user: {initial_recommendations}"})
         self.conversation.append({"role": "user", "content": "Based on the user progress, update your recommendations."})
         self.conversation.append({"role": "assistant", "content": f"Making API call with the prompt: {updates_prompt}"})
 
