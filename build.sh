@@ -8,11 +8,13 @@ npm install
 npm run build
 cd ..
 
-# Set a custom temporary directory for pip
-export TMPDIR=$(mktemp -d)
+# Set up a virtual environment
+echo "Setting up virtual environment..."
+python3 -m venv venv
+source venv/bin/activate
 
 # Install Python dependencies
 echo "Installing Python dependencies..."
-python3 -m pip install --no-cache-dir --force-reinstall --prefix=$TMPDIR -r api/requirements.txt
+pip install --no-cache-dir -r api/requirements.txt
 
 echo "Build completed successfully."
