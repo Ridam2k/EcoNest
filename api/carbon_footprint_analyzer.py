@@ -4,10 +4,15 @@ from typing import Dict, List, Optional, Union, Any, Tuple
 import ast
 import json
 import re
-import api.aUpdatedStructuredResponse as usr
+import api.UpdatedStructuredResponse as usr
 import api.RecommendationsStructuredResponse as rsr
-import api.aAnalysisStructuredResponse as asr
+import api.AnalysisStructuredResponse as asr
 import api.SponsoredProductsResponse as psr
+
+# import UpdatedStructuredResponse as usr
+# import RecommendationsStructuredResponse as rsr
+# import AnalysisStructuredResponse as asr
+# import SponsoredProductsResponse as psr
 import httpx
 
 
