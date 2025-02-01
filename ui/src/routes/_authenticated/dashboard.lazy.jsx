@@ -225,7 +225,7 @@ function RecommendationCard({ item, index, category, recommendations }) {
             <Button
               onClick={handleUpdateProgress}
               className="w-full"
-              disabled={isUpdating || !stepsTaken}
+              disabled={isUpdating}
             >
               {isUpdating ? (
                 <>

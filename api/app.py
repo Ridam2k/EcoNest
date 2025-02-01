@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
-# from carbon_footprint_analyzer import CarbonFootprintAnalyzer
-from api.carbon_footprint_analyzer import CarbonFootprintAnalyzer
+from carbon_footprint_analyzer import CarbonFootprintAnalyzer
+# from api.carbon_footprint_analyzer import CarbonFootprintAnalyzer
 from supabase import create_client, Client
 from functools import wraps
 import os
