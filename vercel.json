@@ -5,11 +5,11 @@
     "rewrites": [
       {
         "source": "/api/(.*)",
-        "destination": "/backend/app.py"
+        "destination": "/api/app.py"
       }
     ],
     "functions": {
-      "backend/app.py": {
+      "api/app.py": {
         "memory": 1024,
         "maxDuration": 10
       }

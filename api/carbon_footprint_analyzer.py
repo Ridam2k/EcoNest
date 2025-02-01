@@ -6,7 +6,7 @@ import json
 import re
 import UpdatedStructuredResponse as usr
 import RecommendationsStructuredResponse as rsr
-import AnalysisStructuredResponse as asr
+import api.AnalysisStructuredResponse as asr
 import SponsoredProductsResponse as psr
 
 
