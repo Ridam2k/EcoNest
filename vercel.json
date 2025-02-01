@@ -1,16 +1,10 @@
 {
   "buildCommand": "bash ./build.sh",
   "outputDirectory": "ui/dist",
-  "builds": [
-    {
-      "src": "api/index.py",
-      "use": "@vercel/python"
-    }
-  ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "api/index.py"
+      "dest": "api/app.py"
     },
     {
       "src": "/(.*)",
