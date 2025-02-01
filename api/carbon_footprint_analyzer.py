@@ -4,10 +4,11 @@ from typing import Dict, List, Optional, Union, Any, Tuple
 import ast
 import json
 import re
-import api.UpdatedStructuredResponse as usr
-import api.RecommendationsStructuredResponse as rsr
-import api.AnalysisStructuredResponse as asr
-import api.SponsoredProductsResponse as psr
+import UpdatedStructuredResponse as usr
+import RecommendationsStructuredResponse as rsr
+import AnalysisStructuredResponse as asr
+import SponsoredProductsResponse as psr
+import httpx
 
 
 # Example user input
@@ -64,14 +65,14 @@ class CarbonFootprintAnalyzer:
 
     def _get_analysis_prompt(self, user_input: str) -> str:
         """Generate the analysis prompt template."""
-        with open("Prompts/onboarding.txt", "r") as file:
+        with open("api/Prompts/onboarding.txt", "r") as file:
             text = file.read()
             
         return text.format(user_input=user_input)
 
     def _get_recommendations_prompt(self, budget: str, categories: str) -> str:
         """Generate the recommendations prompt template."""
-        with open("Prompts/recommendations.txt", "r") as file:
+        with open("api/Prompts/recommendations.txt", "r") as file:
             text = file.read()
             
         return text.format(budget=budget, categories=categories)
@@ -79,14 +80,14 @@ class CarbonFootprintAnalyzer:
 
     def _get_updates_prompt(self, recommendation: str, current_category : str,initial_recommendations, specific_steps_taken: Optional[str]= None, next_steps: Optional[str] = None) -> str:
         """Generate the updates prompt template."""
-        with open("Prompts/updates.txt", "r") as file:
+        with open("api/Prompts/updates.txt", "r") as file:
             text = file.read()
             
         return text.format(recommendation=recommendation, current_category = current_category, steps_taken=specific_steps_taken, next_steps=next_steps, previous_recommendations=initial_recommendations)
     
     def _get_products_prompt(self, user_input, recommendations):
         """Generate the products prompt template."""
-        with open("Prompts/products.txt", "r") as file:
+        with open("api/Prompts/products.txt", "r") as file:
             text = file.read()
             
         return text.format(user_input=user_input, recommendations = recommendations)
