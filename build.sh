@@ -11,6 +11,6 @@ cd ..
 
 # Install backend Python dependencies
 echo "Installing Python dependencies..."
-pip install -r api/requirements.txt
+python3 -m pip install -r api/requirements.txt
 
 echo "Build completed successfully."
